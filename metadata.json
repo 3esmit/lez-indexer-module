@@ -1,5 +1,6 @@
 {
   "name": "lez_indexer_module",
+  "display_name": "LEZ Indexer",
   "version": "1.0.0",
   "type": "core",
   "interface": "universal",

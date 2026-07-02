@@ -40,11 +40,11 @@ On success it returns `0`; a non-zero return is the FFI `OperationStatus` (e.g. 
 
 > [!TIP]
 >
-> By default the indexer is silent. Call `init_logger(level)` once (e.g.
-> `init_logger("info")`; accepts `off`/`error`/`warn`/`info`/`debug`/`trace`) to
-> surface the indexer's own `log` output — useful since a failed call otherwise
-> only reports a numeric `OperationStatus`. Logging is scoped to the indexer
-> crates, and the first call wins.
+> The module logs its lifecycle (start/stop, the resolved config + storage paths,
+> and failures with their `OperationStatus`) to stderr, which the `logos_host`
+> captures and surfaces through its own logger. For ongoing indexer health — sync
+> state, and a parked/stalled tip with its reason — poll `getStatus()`; that runs
+> inside the indexer and reports what the C++ lifecycle logs can't see.
 
 ### Query methods (the Logos-protocol API)
 

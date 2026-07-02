@@ -152,6 +152,19 @@ namespace marshalling {
         return true;
     }
 
+    // True iff `s` is exactly `num_chars` hex digits (no prefix/whitespace).
+    bool isHex(const std::string& s, const size_t num_chars) {
+        if (s.size() != num_chars) {
+            return false;
+        }
+        for (const char c : s) {
+            if (hexNibble(c) < 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // Base58-encode `length` raw bytes (plain Bitcoin alphabet). Big-integer
     // base 256 -> 58, leading zero bytes map to leading '1's. Mirrors
     // Base58.js::encode so account ids match the wallet UI and canonical LEZ.

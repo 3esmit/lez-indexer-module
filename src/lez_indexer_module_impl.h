@@ -41,6 +41,16 @@ public:
     /// own). Returns 0 on success, else the FFI OperationStatus code.
     int64_t stop_indexer();
 
+    /// Stop the indexer (if running) and delete the RocksDB store for the config's
+    /// channel — `<storage>/rocksdb-<channel_id>`, where `<storage>` is resolved the
+    /// same way start_indexer resolves it (the host's instance persistence path, or
+    /// the process working directory when unset) — so the next start_indexer
+    /// re-indexes from scratch. The recovery path when the store is stale against a
+    /// different/reset chain. Pass the same `config_path` given to start_indexer;
+    /// does NOT restart. Returns 0 on success, else non-zero. int64_t for the same
+    /// codegen reason as start_indexer.
+    int64_t reset_storage(const std::string& config_path);
+
     /// Account by id, accepting Base58 (canonical) or 32-byte hex. The returned
     /// JSON omits the id; callers inject the queried id themselves.
     std::string getAccount(const std::string& account_id);
@@ -71,12 +81,12 @@ public:
     std::string getTransactionsByAccount(const std::string& account_id, const std::string& offset, const std::string& limit);
     // clang-format on
 
-    /// Enable the indexer's logging at `level` (off/error/warn/info/debug/trace;
-    /// null or unparseable falls back to info). Scoped to the indexer crates
-    /// only; the first call wins (subsequent calls are no-ops).
-    void init_logger(const std::string& level);
-
 private:
+    // Storage dir handed to the FFI, either:
+    // - the host's instance persistence path
+    // - the process working directory (".") when the host didn't provision one
+    std::string resolveStorageDir(const char* method) const;
+
     // IndexerServiceFFI* — opaque here (see class comment); cast in the .cpp.
     void* indexer_service_ffi = nullptr;
 };

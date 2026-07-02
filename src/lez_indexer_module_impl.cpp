@@ -5,6 +5,9 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <string>
 
 using namespace marshalling;
 
@@ -15,34 +18,62 @@ namespace {
         return static_cast<IndexerServiceFFI*>(p);
     }
 
-    void warn(const char* method, const char* msg) {
-        std::fprintf(stderr, "lez_indexer_module: %s: %s\n", method, msg);
+    // Module diagnostics go to stderr; logos_host captures it and routes each line
+    // through its own logger, classifying by an "Error:"/"Warning:" token found
+    // anywhere in the line (plain lines are treated as info). Prefix accordingly.
+    void info(const char* method, const std::string& msg) {
+        std::fprintf(stderr, "lez_indexer_module: %s: %s\n", method, msg.c_str());
+    }
+    void warn(const char* method, const std::string& msg) {
+        std::fprintf(stderr, "lez_indexer_module: Warning: %s: %s\n", method, msg.c_str());
+    }
+    void error(const char* method, const std::string& msg) {
+        std::fprintf(stderr, "lez_indexer_module: Error: %s: %s\n", method, msg.c_str());
     }
 } // namespace
 
 LezIndexerModuleImpl::~LezIndexerModuleImpl() {
     if (stop_indexer() != 0) {
-        warn("destructor", "indexer FFI error on stop");
+        error("destructor", "indexer FFI error on stop");
     }
 }
 
 // === Indexer Lifecycle ===
 
-int64_t LezIndexerModuleImpl::start_indexer(const std::string& config_path) {
-    if (!indexer_service_ffi) {
-        // Null runtime: the FFI creates and owns its own tokio runtime. Storage
-        // goes under this module's instance persistence path (host-owned, stable
-        // per Basecamp --user-dir) so RocksDB never lands in the process CWD.
-        InitializedIndexerServiceFFIResult res =
-            ::start_indexer(nullptr, config_path.c_str(), instancePersistencePath().c_str());
-        if (is_error(&res.error)) {
-            warn("start_indexer", "indexer FFI error");
-            return static_cast<int64_t>(res.error);
-        }
+std::string LezIndexerModuleImpl::resolveStorageDir(const char* method) const {
+    // The host owns where state lives (its instance persistence path). When that
+    // isn't provisioned (e.g. running outside Basecamp), fall back to the process
+    // working directory — the same "." the FFI's start_indexer uses — so start and
+    // reset always agree on the store location.
+    const std::string& path = instancePersistencePath();
+    if (!path.empty()) {
+        return path;
+    }
+    warn(method, "no instance persistence path; using the working directory");
+    return ".";
+}
 
-        indexer_service_ffi = res.value;
+int64_t LezIndexerModuleImpl::start_indexer(const std::string& config_path) {
+    if (indexer_service_ffi) {
+        info("start_indexer", "indexer already running; ignoring start request");
+        return 0;
     }
 
+    // Null runtime: the FFI creates and owns its own tokio runtime.
+    const std::string storage = resolveStorageDir("start_indexer");
+    info("start_indexer", "starting indexer (config=" + config_path + ", storage=" + storage + ")");
+
+    InitializedIndexerServiceFFIResult res = ::start_indexer(nullptr, config_path.c_str(), storage.c_str());
+    if (is_error(&res.error)) {
+        error(
+            "start_indexer",
+            "FFI failed to start indexer (OperationStatus " + std::to_string(static_cast<int64_t>(res.error)) + ")"
+        );
+        return static_cast<int64_t>(res.error);
+    }
+
+    indexer_service_ffi = res.value;
+    info("start_indexer", "indexer started");
     return 0;
 }
 
@@ -55,14 +86,60 @@ int64_t LezIndexerModuleImpl::stop_indexer() {
     OperationStatus operation_result = ::stop_indexer(handle(indexer_service_ffi));
     indexer_service_ffi = nullptr;
     if (is_error(&operation_result)) {
-        warn("stop_indexer", "indexer FFI error on stop");
+        error(
+            "stop_indexer",
+            "FFI error on stop (OperationStatus " + std::to_string(static_cast<int64_t>(operation_result)) + ")"
+        );
         return static_cast<int64_t>(operation_result);
     }
+    info("stop_indexer", "indexer stopped");
     return 0;
 }
 
-void LezIndexerModuleImpl::init_logger(const std::string& level) {
-    ::init_logger(level.c_str());
+int64_t LezIndexerModuleImpl::reset_storage(const std::string& config_path) {
+    // Stop first so RocksDB is closed before its files are deleted
+    const int64_t stop_code = stop_indexer();
+    if (stop_code != 0) {
+        error("reset_storage", "could not stop indexer before wiping storage");
+        return stop_code;
+    }
+
+    // FFI stores RocksDB at <storage>/rocksdb-{channel_id}
+    const std::filesystem::path storage = resolveStorageDir("reset_storage");
+    std::string channel_id;
+    try {
+        std::ifstream in(config_path);
+        if (!in) {
+            error("reset_storage", "could not open config " + config_path);
+            return -1;
+        }
+        channel_id = nlohmann::json::parse(in).at("channel_id").get<std::string>();
+    } catch (const std::exception& e) {
+        error("reset_storage", std::string("could not read channel_id from config: ") + e.what());
+        return -1;
+    }
+    // A channel id is a 32-byte hex string. Validate before building a path so a
+    // malformed/edited config can't inject separators ("../", absolute paths) and
+    // make remove_all escape the storage dir.
+    if (!isHex(channel_id, 64)) {
+        error("reset_storage", "config channel_id is not a 64-char hex string; refusing to build a wipe path");
+        return -1;
+    }
+
+    const std::filesystem::path store = storage / ("rocksdb-" + channel_id);
+    std::error_code ec;
+    // remove_all returns the number of entries removed and only sets `ec` on a real
+    // error; a missing store removes 0 with no error. No exists() pre-check — that
+    // would mask an IO/permission error as a successful "nothing to wipe".
+    const std::uintmax_t removed = std::filesystem::remove_all(store, ec);
+    if (ec) {
+        error("reset_storage", "failed to remove " + store.string() + ": " + ec.message());
+        return -1;
+    }
+    info("reset_storage",
+         removed == 0 ? "no store at " + store.string() + "; nothing to wipe"
+                      : "wiped rocksdb store " + store.string());
+    return 0;
 }
 
 // === Indexer Queries ===

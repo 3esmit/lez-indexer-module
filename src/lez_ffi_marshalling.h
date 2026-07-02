@@ -40,6 +40,11 @@ namespace marshalling {
     // Returns false unless it decodes to exactly 32 bytes.
     bool hexToBytes32(const std::string& hex, FfiBytes32* out);
 
+    // True iff `s` is exactly `num_chars` hex digits (no 0x prefix, no whitespace).
+    // For validating fixed-width hex identifiers (e.g. a 64-char channel id) before
+    // trusting them as-is, such as when composing a filesystem path.
+    bool isHex(const std::string& s, size_t num_chars);
+
     // Base58 (plain Bitcoin alphabet, no checksum) of `length` raw bytes. This is
     // the canonical string form of an LEZ *account id* — it matches lee::AccountId
     // Display, wallet_ffi's account_id_to_base58, and the wallet UI's Base58.js.
