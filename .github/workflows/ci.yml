@@ -78,10 +78,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Package and lifecycle builds run in dedicated jobs below. Keep this
-          # contract job evaluation-only so a cold runner cannot duplicate
-          # those builds and exhaust its short timeout.
-          nix flake check --no-build --no-write-lock-file
+          # Package and lifecycle builds run in dedicated jobs below. Evaluate
+          # the release-facing outputs here, rather than all checks: evaluating
+          # a heavy test derivation on a cold runner can duplicate that work
+          # and exhaust this job's short timeout.
+          nix eval --raw .#packages.x86_64-linux.lgx-portable.drvPath --no-write-lock-file >/dev/null
+          nix eval --raw .#packages.x86_64-linux.default.drvPath --no-write-lock-file >/dev/null
+          nix eval --raw .#packages.x86_64-linux.lidl.drvPath --no-write-lock-file >/dev/null
           bash scripts/test-source-release-workflow.sh
 
   unit-tests:
