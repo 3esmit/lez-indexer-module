@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-lint:
+    name: Validate workflows and package metadata
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Validate package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '
+            .name == "lez_indexer_module"
+            and (.version | type == "string")
+            and (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"))
+          ' metadata.json >/dev/null
+
+      - name: Run actionlint
+        env:
+          ACTIONLINT_VERSION: "1.7.7"
+          ACTIONLINT_SHA256: "023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757"
+        shell: bash
+        run: |
+          set -euo pipefail
+          temp_dir="$(mktemp -d)"
+          archive="$temp_dir/actionlint.tar.gz"
+          curl -fsSL -o "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  ${archive}" | sha256sum --check --status
+          tar -xzf "$archive" -C "$temp_dir" actionlint
+          "$temp_dir/actionlint" -color .github/workflows/ci.yml .github/workflows/release.yml
+
+  unit-tests:
+    name: Unit tests (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+
+      - name: Run lifecycle contract tests
+        run: nix build .#unit-tests -L
+
+  portable-package:
+    name: Portable package (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Linux x86_64
+            runner: ubuntu-latest
+            needs_metal: false
+          - platform: macOS Apple Silicon
+            runner: macos-latest
+            needs_metal: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+
+      - name: Prepare macOS Metal Toolchain
+        if: matrix.needs_metal
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+          xcodebuild -downloadComponent metalToolchain
+          env -u DEVELOPER_DIR -u SDKROOT xcrun --sdk macosx --find metal
+          env -u DEVELOPER_DIR -u SDKROOT xcrun --sdk macosx --find metallib
+
+      - name: Build portable package
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix_args=(build)
+          if [[ "${{ matrix.needs_metal }}" == "true" ]]; then
+            nix_args+=(--option sandbox false)
+          fi
+          nix_args+=(.#lgx-portable -L)
+          nix "${nix_args[@]}"

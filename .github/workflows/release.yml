@@ -1,0 +1,48 @@
+name: Publish LEZ Indexer Module
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: "Rebuild and replace an existing package release for this version."
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Validate source release contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Validate default branch and package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          jq -e '
+            .name == "lez_indexer_module"
+            and (.version | type == "string")
+            and (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"))
+          ' metadata.json >/dev/null
+
+  release:
+    needs: preflight
+    permissions:
+      contents: write
+    uses: 3esmit/logos-modules-release-action/.github/workflows/release.yml@81f506530c56e8757e6d99ee7f9d4c092e74411c
+    with:
+      module_path: .
+      metadata_path: metadata.json
+      build_attr: lgx-portable
+      variants: linux-amd64,darwin-arm64
+      require_all_variants: true
+      dispatch_rebuild_index: false
+      prerelease: true
+      install_macos_metal_toolchain: true
+      signing_mode: none
+      skip_if_published: ${{ !inputs.force_build }}
