@@ -22,6 +22,7 @@ This will reduce friction when working on the project.
 
 - Use `nix flake update` to bring all nix context and packages
 - Use `nix build` to build the package (produces `lez_indexer_module.<dylib|so|dll>`)
+- Use `nix build .#unit-tests` to build and run the lifecycle contract tests
 - Use `nix run` to launch the module-viewer and check your module loads properly
 - Use `nix develop` to setup your IDE
 
@@ -40,11 +41,37 @@ On success it returns `0`; a non-zero return is the FFI `OperationStatus` (e.g. 
 
 > [!TIP]
 >
-> The module logs its lifecycle (start/stop, the resolved config + storage paths,
-> and failures with their `OperationStatus`) to stderr, which the `logos_host`
-> captures and surfaces through its own logger. For ongoing indexer health — sync
+> The module logs its lifecycle and `OperationStatus` failures to stderr, which
+> `logos_host` captures and surfaces through its own logger. For ongoing indexer health — sync
 > state, and a parked/stalled tip with its reason — poll `getStatus()`; that runs
 > inside the indexer and reports what the C++ lifecycle logs can't see.
+
+### Managed node lifecycle V1
+
+Hosts that manage nodes should prefer the standard V1 surface instead of
+inferring lifecycle state from query failures:
+
+| Method | Purpose |
+| --- | --- |
+| `nodeStatus()` | Returns a versioned lifecycle snapshot. `scope.channel_id` is `null` before a valid configuration has been accepted, then identifies the indexed zone. |
+| `nodeAction(request)` | Accepts a caller-correlated V1 JSON command and immediately returns an acknowledgement. |
+| `nodeChanged(event)` | Emits ordered V1 accepted and settled observations for each accepted command. |
+
+The command envelope is `logos.managed_node_lifecycle.command`, version `1`.
+It requires an `operation_id` and one of these actions:
+
+- `start` — from `uninitialized` or `stopped`. The first start requires
+  `parameters.config_path`; later starts may reuse the last accepted config.
+- `stop` — from `running`.
+- `reset` — from `stopped`; removes the current channel's RocksDB store and
+  leaves the Indexer stopped.
+
+`parameters.config_path`, when supplied, must be an absolute path to a valid
+Indexer JSON config with a 64-character hexadecimal `channel_id`. Lifecycle
+snapshots, acknowledgements, and events never include that path or config
+contents. Existing `start_indexer`, `stop_indexer`, and `reset_storage` methods
+remain compatible; they also update the V1 snapshot and emit uncorrelated
+events.
 
 ### Query methods (the Logos-protocol API)
 
