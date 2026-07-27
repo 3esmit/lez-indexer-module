@@ -40,12 +40,6 @@ jobs:
         shell: bash
         run: ./actionlint -color .github/workflows/ci.yml .github/workflows/release.yml
 
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
-        with:
-          extra-conf: |
-            experimental-features = nix-command flakes
-
       - name: Validate changed source formatting and metadata
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
@@ -74,14 +68,12 @@ jobs:
             fi
           fi
 
-      - name: Evaluate flake and release contract
+      - name: Validate release contract
         shell: bash
         run: |
           set -euo pipefail
-          # Package and lifecycle builds run in dedicated jobs below. Keep this
-          # source-contract job metadata-only: output evaluation can instantiate
-          # the same heavyweight dependency graph on a cold runner.
-          nix flake metadata --json --no-write-lock-file >/dev/null
+          # The dedicated package and lifecycle jobs below evaluate the flake.
+          # Keep this source-only job independent from Nix input availability.
           bash scripts/test-source-release-workflow.sh
 
   unit-tests:
