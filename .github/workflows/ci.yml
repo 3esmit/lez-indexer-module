@@ -78,7 +78,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          nix flake check --no-write-lock-file
+          # Package and lifecycle builds run in dedicated jobs below. Keep this
+          # contract job evaluation-only so a cold runner cannot duplicate
+          # those builds and exhaust its short timeout.
+          nix flake check --no-build --no-write-lock-file
           bash scripts/test-source-release-workflow.sh
 
   unit-tests:
