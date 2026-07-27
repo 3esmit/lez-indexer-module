@@ -64,7 +64,7 @@ jobs:
                 grep -E '\.(c|cc|cpp|cxx|h|hh|hpp)$' || true
             )
             if (( ${#sources[@]} > 0 )); then
-              nix develop --command clang-format --dry-run --Werror "${sources[@]}"
+              clang-format --dry-run --Werror "${sources[@]}"
             fi
           fi
 
