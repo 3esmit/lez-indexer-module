@@ -78,13 +78,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Package and lifecycle builds run in dedicated jobs below. Evaluate
-          # the release-facing outputs here, rather than all checks: evaluating
-          # a heavy test derivation on a cold runner can duplicate that work
-          # and exhaust this job's short timeout.
-          nix eval --raw .#packages.x86_64-linux.lgx-portable.drvPath --no-write-lock-file >/dev/null
-          nix eval --raw .#packages.x86_64-linux.default.drvPath --no-write-lock-file >/dev/null
-          nix eval --raw .#packages.x86_64-linux.lidl.drvPath --no-write-lock-file >/dev/null
+          # Package and lifecycle builds run in dedicated jobs below. Keep this
+          # source-contract job metadata-only: output evaluation can instantiate
+          # the same heavyweight dependency graph on a cold runner.
+          nix flake metadata --json --no-write-lock-file >/dev/null
           bash scripts/test-source-release-workflow.sh
 
   unit-tests:
