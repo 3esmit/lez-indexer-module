@@ -25,6 +25,26 @@ This will reduce friction when working on the project.
 - Use `nix run` to launch the module-viewer and check your module loads properly
 - Use `nix develop` to setup your IDE
 
+## Package releases
+
+This repository owns portable LEZ Indexer package releases. Run **Publish LEZ
+Indexer Module** from `main` after updating `metadata.json` and adding a
+matching `## [version]` entry to `CHANGELOG.md`.
+
+The release workflow builds and requires both `linux-amd64` and
+`darwin-arm64`, verifies that each package manifest matches `metadata.json`,
+merges them into one LGX, writes a SHA-256 sidecar, and publishes an alpha
+GitHub release tagged `lez_indexer_module-v<version>`. Releases are unsigned
+until a signing key policy is introduced.
+
+Validate the same source-release contract locally with:
+
+```bash
+bash scripts/test-source-release-workflow.sh
+nix build .#lgx-portable --out-link result-lgx -L
+bash scripts/verify-portable-package.sh result-lgx/*.lgx linux-amd64
+```
+
 ## Usage
 
 The module does **not** start the indexer on load — something must invoke its `start_indexer` method (via the module-viewer's invoke panel, or another module / basecamp over the Logos protocol):

@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-contract:
+    name: Source and release contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Install actionlint
+        env:
+          ACTIONLINT_VERSION: "1.7.7"
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            --output actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          tar -xzf actionlint.tar.gz actionlint
+
+      - name: Validate workflow syntax
+        shell: bash
+        run: ./actionlint -color .github/workflows/ci.yml .github/workflows/release.yml
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+
+      - name: Validate changed source formatting and metadata
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '
+            (.name == "lez_indexer_module")
+            and (.version | type == "string" and length > 0)
+            and (.type == "core")
+            and (.interface == "universal")
+          ' metadata.json >/dev/null
+
+          base="$BASE_SHA"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
+            base="$(git rev-parse HEAD^ 2>/dev/null || true)"
+          fi
+          if [[ -n "$base" ]]; then
+            git diff --check "$base" HEAD
+            mapfile -t sources < <(
+              git diff --name-only "$base" HEAD |
+                grep -E '\.(c|cc|cpp|cxx|h|hh|hpp)$' || true
+            )
+            if (( ${#sources[@]} > 0 )); then
+              nix develop --command clang-format --dry-run --Werror "${sources[@]}"
+            fi
+          fi
+
+      - name: Evaluate flake and release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix flake check --no-write-lock-file
+          bash scripts/test-source-release-workflow.sh
+
+  unit-tests:
+    name: Lifecycle unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+
+      - name: Build and run unit tests when exposed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if nix eval --json .#packages.x86_64-linux | jq -e 'has("unit-tests")' >/dev/null; then
+            nix build .#unit-tests --no-link -L
+          else
+            echo "::notice::unit-tests output is not exposed by this baseline"
+          fi
+
+  portable-package:
+    name: Portable package (${{ matrix.variant }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            variant: linux-amd64
+          - runner: macos-latest
+            variant: darwin-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+
+      - name: Build portable LGX
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix build .#lgx-portable --out-link result-lgx -L
+          bash scripts/verify-portable-package.sh result-lgx/*.lgx "${{ matrix.variant }}"
+
+      - name: Upload portable LGX
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lez-indexer-module-${{ matrix.variant }}
+          path: result-lgx/*.lgx
+          if-no-files-found: error
+          retention-days: 7
