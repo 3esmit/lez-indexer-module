@@ -1,15 +1,19 @@
 {
   "name": "lez_indexer_module",
-  "display_name": "LEZ Indexer",
-  "version": "1.1.0",
+  "display_name": "LEZ Indexer Module",
+  "version": "1.1.1",
+  "description": "Logos Execution Zone Indexer Module for Logos Core",
   "type": "core",
   "interface": "universal",
   "category": "blockchain",
-  "description": "Logos Execution Zone Indexer Module for Logos Core",
   "main": "lez_indexer_module_plugin",
   "dependencies": [],
   "nix": {
-    "external_libraries": [{ "name": "indexer_ffi" }],
+    "external_libraries": [
+      {
+        "name": "indexer_ffi"
+      }
+    ],
     "cmake": {
       "extra_include_dirs": ["lib"]
     }
