@@ -3,7 +3,7 @@
 
   inputs = {
     logos-module-builder.url = "github:logos-co/logos-module-builder";
-    logos-execution-zone.url = "github:logos-blockchain/logos-execution-zone?ref=v0.2.2-rc1";
+    logos-execution-zone.url = "github:logos-blockchain/logos-execution-zone?ref=v0.2.2";
   };
 
   outputs =

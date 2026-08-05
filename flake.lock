@@ -1583,7 +1583,7 @@
       },
       "original": {
         "owner": "logos-blockchain",
-        "ref": "v0.2.2-rc1",
+        "ref": "v0.2.2",
         "repo": "logos-execution-zone",
         "type": "github"
       }
