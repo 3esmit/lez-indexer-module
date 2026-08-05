@@ -65,9 +65,10 @@ public:
     std::string getBlocks(const std::string& before, const std::string& limit);
     /// Tip block id as a bare decimal string.
     std::string getLastFinalizedBlockId();
-    /// Current ingestion status as a compact JSON object so a UI can tell
-    /// "catching up" from "failed": { state (starting/syncing/caught_up/error),
-    /// indexedBlockId, lastError }. Empty string if the indexer isn't running.
+    /// Current ingestion status as the core's `IndexerStatus` JSON, passed
+    /// through verbatim: { state (Starting/Syncing/CaughtUp/Error/Stalled),
+    /// last_error, indexed_block_id, stall_reason }. Empty string if the
+    /// indexer isn't running.
     std::string getStatus();
     /// Transactions touching `account_id` (Base58 or 32-byte hex), paginated by
     /// decimal `offset`/`limit`.
