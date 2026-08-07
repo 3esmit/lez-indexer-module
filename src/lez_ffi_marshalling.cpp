@@ -258,19 +258,20 @@ namespace marshalling {
             obj["hash"] = bytesToHex(body->hash.data, 32);
 
             nlohmann::json accounts = nlohmann::json::array();
-            const FfiAccountIdList& ids = body->message.public_account_ids;
+            const FfiPublicActionList& publicActions = body->message.public_actions;
             const FfiNonceList& nonces = body->message.nonces;
-            for (uintptr_t i = 0; i < ids.len; ++i) {
+            for (uintptr_t i = 0; i < publicActions.len; ++i) {
                 nlohmann::json ref;
-                ref["account_id"] = bytes32ToBase58(ids.entries[i].data, 32);
+                ref["account_id"] = bytes32ToBase58(publicActions.entries[i].account_id.data, 32);
                 ref["nonce"] = i < nonces.len ? u128LeToDecimal(nonces.entries[i].data) : std::string("0");
                 accounts.push_back(ref);
             }
             obj["accounts"] = accounts;
 
-            obj["new_commitments_count"] = static_cast<int>(body->message.new_commitments.len);
-            obj["nullifiers_count"] = static_cast<int>(body->message.new_nullifiers.len);
-            obj["encrypted_states_count"] = static_cast<int>(body->message.encrypted_private_post_states.len);
+            // Each private action bundles nullifier + root + commitment +
+            // encrypted post-state, so the former per-list counts collapse
+            // into this single count.
+            obj["private_actions_count"] = static_cast<int>(body->message.private_actions.len);
             obj["validity_window_start"] = u64ToString(body->message.block_validity_window[0]);
             obj["validity_window_end"] = u64ToString(body->message.block_validity_window[1]);
             obj["signature_count"] = static_cast<int>(body->witness_set.len);
