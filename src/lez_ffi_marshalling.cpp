@@ -258,20 +258,27 @@ namespace marshalling {
             obj["hash"] = bytesToHex(body->hash.data, 32);
 
             nlohmann::json accounts = nlohmann::json::array();
-            const FfiPublicActionList& publicActions = body->message.public_actions;
+            // The maintained node fork still exposes the legacy privacy-message
+            // representation. Public action account ids are equivalent to its
+            // public_account_ids list; avoid requiring a larger, ABI-breaking
+            // transaction struct just for this read-only projection.
+            const FfiAccountIdList& publicAccountIds = body->message.public_account_ids;
             const FfiNonceList& nonces = body->message.nonces;
-            for (uintptr_t i = 0; i < publicActions.len; ++i) {
+            for (uintptr_t i = 0; i < publicAccountIds.len; ++i) {
                 nlohmann::json ref;
-                ref["account_id"] = bytes32ToBase58(publicActions.entries[i].account_id.data, 32);
+                ref["account_id"] = bytes32ToBase58(publicAccountIds.entries[i].data, 32);
                 ref["nonce"] = i < nonces.len ? u128LeToDecimal(nonces.entries[i].data) : std::string("0");
                 accounts.push_back(ref);
             }
             obj["accounts"] = accounts;
 
-            // Each private action bundles nullifier + root + commitment +
-            // encrypted post-state, so the former per-list counts collapse
-            // into this single count.
-            obj["private_actions_count"] = static_cast<int>(body->message.private_actions.len);
+            // The legacy representation stores each private action component in
+            // a separate list. A complete action has one value in every list.
+            obj["private_actions_count"] = static_cast<int>(std::min({
+                body->message.new_nullifiers.len,
+                body->message.new_commitments.len,
+                body->message.encrypted_private_post_states.len,
+            }));
             obj["validity_window_start"] = u64ToString(body->message.block_validity_window[0]);
             obj["validity_window_end"] = u64ToString(body->message.block_validity_window[1]);
             obj["signature_count"] = static_cast<int>(body->witness_set.len);
