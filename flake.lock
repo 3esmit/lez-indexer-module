@@ -5294,11 +5294,11 @@
         "rust-rapidsnark": "rust-rapidsnark"
       },
       "locked": {
-        "lastModified": 1786943523,
-        "narHash": "sha256-t/qBzqYPpDR1Fm8LHp8afm2ZL+3pOErrOzGu9JIdPKM=",
+        "lastModified": 1786944847,
+        "narHash": "sha256-SkVsZ8SVEXThy6mOlxaVlibd3akVGG5t9A0jdbVLfgc=",
         "owner": "3esmit",
         "repo": "logos-execution-zone",
-        "rev": "b5008d4bae4410949dd53a435f00e3d506684d29",
+        "rev": "5121c43dd2081ca34a187834b48b769be4f39c25",
         "type": "github"
       },
       "original": {
