@@ -3,7 +3,7 @@
 
   inputs = {
     logos-module-builder.url = "github:3esmit/logos-module-builder?rev=324b459c3f7b59171d249f3ccbcc362403b3fcaf";
-    logos-execution-zone.url = "github:3esmit/logos-execution-zone?rev=51cf680b7d789bddd23f1401b1cb249f855367e2";
+    logos-execution-zone.url = "github:3esmit/logos-execution-zone?rev=d53e527bfeb2fafc113b29f33f5cf92f835794c7";
   };
 
   outputs =
