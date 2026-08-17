@@ -3,7 +3,7 @@
 
   inputs = {
     logos-module-builder.url = "github:3esmit/logos-module-builder?rev=324b459c3f7b59171d249f3ccbcc362403b3fcaf";
-    logos-execution-zone.url = "github:3esmit/logos-execution-zone?ref=fix/v022-legacy-chain-info";
+    logos-execution-zone.url = "github:3esmit/logos-execution-zone?rev=5121c43dd2081ca34a187834b48b769be4f39c25";
   };
 
   outputs =

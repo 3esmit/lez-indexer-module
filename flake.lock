@@ -5303,9 +5303,8 @@
       },
       "original": {
         "owner": "3esmit",
-        "ref": "fix/v022-legacy-chain-info",
         "repo": "logos-execution-zone",
-        "rev": "b5008d4bae4410949dd53a435f00e3d506684d29",
+        "rev": "5121c43dd2081ca34a187834b48b769be4f39c25",
         "type": "github"
       }
     },
