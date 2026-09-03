@@ -278,16 +278,6 @@ namespace marshalling {
             obj["proof_size"] = static_cast<int>(body->proof.len);
             break;
         }
-        case ProgramDeploy: {
-            const FfiProgramDeploymentTransactionBody* body = tx.body.program_deployment_body;
-            if (!body) {
-                break;
-            }
-            obj["type"] = "ProgramDeployment";
-            obj["hash"] = bytesToHex(body->hash.data, 32);
-            obj["bytecode_size"] = static_cast<int>(body->message.len);
-            break;
-        }
         }
 
         return obj;
