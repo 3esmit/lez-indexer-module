@@ -240,13 +240,24 @@ namespace marshalling {
             }
             obj["accounts"] = accounts;
 
-            nlohmann::json instructionData = nlohmann::json::array();
+            // Raw instruction bytes as hex.
             const FfiInstructionDataList& instr = body->message.instruction_data;
-            for (uintptr_t i = 0; i < instr.len; ++i) {
-                instructionData.push_back(static_cast<std::int64_t>(instr.entries[i]));
-            }
-            obj["instruction_data"] = instructionData;
+            obj["instruction_data"] = bytesToHex(instr.entries, instr.len);
             obj["signature_count"] = static_cast<int>(body->witness_set.len);
+
+            // Declared fee (payer + caps), not the amount actually charged.
+            // Absent (null) for fee-exempt/system transactions.
+            if (body->message.has_fee) {
+                const FfiFeeDeclaration& fee = body->message.fee;
+                nlohmann::json feeObj;
+                feeObj["payer"] = bytes32ToBase58(fee.payer.data, 32);
+                feeObj["gas_limit"] = u64ToString(fee.gas_limit);
+                feeObj["tip"] = u64ToString(fee.tip);
+                feeObj["max_fee"] = u128LeToDecimal(fee.max_fee.data);
+                obj["fee"] = feeObj;
+            } else {
+                obj["fee"] = nullptr;
+            }
             break;
         }
         case Private: {

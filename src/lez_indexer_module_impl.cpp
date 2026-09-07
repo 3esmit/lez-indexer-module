@@ -136,9 +136,10 @@ int64_t LezIndexerModuleImpl::reset_storage(const std::string& config_path) {
         error("reset_storage", "failed to remove " + store.string() + ": " + ec.message());
         return -1;
     }
-    info("reset_storage",
-         removed == 0 ? "no store at " + store.string() + "; nothing to wipe"
-                      : "wiped rocksdb store " + store.string());
+    info(
+        "reset_storage",
+        removed == 0 ? "no store at " + store.string() + "; nothing to wipe" : "wiped rocksdb store " + store.string()
+    );
     return 0;
 }
 
