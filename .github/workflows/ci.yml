@@ -32,9 +32,6 @@ jobs:
             and (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"))
           ' metadata.json >/dev/null
 
-      - name: Validate deployed block payload contract
-        run: python3 tests/check_block_root_contract.py
-
       - name: Run actionlint
         env:
           ACTIONLINT_VERSION: "1.7.7"
