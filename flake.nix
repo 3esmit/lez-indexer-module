@@ -3,7 +3,9 @@
 
   inputs = {
     logos-module-builder.url = "github:3esmit/logos-module-builder?rev=324b459c3f7b59171d249f3ccbcc362403b3fcaf";
-    logos-execution-zone.url = "github:3esmit/logos-execution-zone?rev=d53e527bfeb2fafc113b29f33f5cf92f835794c7";
+    # Keep the indexer on the Bedrock-compatible HTTP parser. This revision
+    # accepts both the current `body_root` and deployed `block_root` fields.
+    logos-execution-zone.url = "github:3esmit/logos-execution-zone?rev=20f27f5bd55ebaa2a9661aca7408b4099662db4b";
   };
 
   outputs =
