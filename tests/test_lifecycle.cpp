@@ -274,3 +274,20 @@ LOGOS_TEST(node_action_reports_safe_start_failures_without_host_path_leaks) {
     LOGOS_ASSERT_EQ(status.at("health").get<std::string>(), std::string("degraded"));
     LOGOS_ASSERT_TRUE(status.dump().find("never-expose-host-path") == std::string::npos);
 }
+
+LOGOS_TEST(deployed_block_root_payload_matches_http_contract) {
+    const fs::path fixture = fs::path(__FILE__).parent_path() / "fixtures" / "deployed_block_root_payload.json";
+    std::ifstream input(fixture);
+    LOGOS_ASSERT_TRUE(input.good());
+
+    const json payload = json::parse(input, nullptr, false);
+    LOGOS_ASSERT_FALSE(payload.is_discarded());
+    LOGOS_ASSERT_EQ(payload.size(), static_cast<size_t>(1));
+
+    const json& header = payload.at(0).at("header");
+    LOGOS_ASSERT_EQ(header.at("slot").get<int>(), 348);
+    LOGOS_ASSERT_TRUE(header.contains("block_root"));
+    LOGOS_ASSERT_FALSE(header.contains("body_root"));
+    LOGOS_ASSERT_EQ(header.at("block_root").get<std::string>().size(), static_cast<size_t>(64));
+    LOGOS_ASSERT_TRUE(payload.at(0).at("transactions").is_array());
+}
