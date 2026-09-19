@@ -9,9 +9,9 @@
 
   inputs = {
     logos-module-builder.url = "github:3esmit/logos-module-builder?rev=324b459c3f7b59171d249f3ccbcc362403b3fcaf";
-    # Keep the indexer on the Bedrock-compatible HTTP parser. This revision
-    # accepts both the current `body_root` and deployed `block_root` fields.
-    logos-execution-zone.url = "github:3esmit/logos-execution-zone?rev=66a4f3eac50e0330a6cb5e401bc1f8223f955cf3";
+    # Keep the indexer on the Bedrock-compatible HTTP parser and Testnet FFI
+    # profile. This revision builds the deployed Testnet clock/program IDs.
+    logos-execution-zone.url = "github:3esmit/logos-execution-zone?rev=ae0bd578ef7b7ab7ff0f7d6d9d69fd2226d9647a";
   };
 
   outputs =
