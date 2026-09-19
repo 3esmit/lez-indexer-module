@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.4 — 2026-09-19
+
+- Build the Indexer FFI against the deployed Testnet program profile.
+- Align clock-transaction validation with the current Testnet channel history.
+
 ## 1.1.3 — 2026-09-17
 
 - Published the indexer against the maintained Bedrock-compatible parser.
